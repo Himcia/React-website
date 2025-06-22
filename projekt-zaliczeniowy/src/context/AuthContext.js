@@ -1,6 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+// src/context/AuthContext.jsx
+import React, { createContext, useContext, useEffect, useState } from "react";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
+} from "firebase/auth";
+import { auth, db } from "../firebase";
+import { setDoc, getDoc, doc, Timestamp } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -13,16 +21,38 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, currentUser => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        const docRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        const role = docSnap.exists() ? docSnap.data().role : "user";
+
+        setUser({
+          uid: currentUser.uid,
+          email: currentUser.email,
+          role
+        });
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
 
-  function register(email, password) {
-    return createUserWithEmailAndPassword(auth, email, password);
+  async function register(email, password, firstName = "", lastName = "") {
+    const { user: createdUser } = await createUserWithEmailAndPassword(auth, email, password);
+
+    await updateProfile(createdUser, {
+      displayName: `${firstName} ${lastName}`.trim()
+    });
+
+    await setDoc(doc(db, "users", createdUser.uid), {
+      email: createdUser.email,
+      role: "user",
+      createdAt: Timestamp.now()
+    });
   }
 
   function login(email, password) {
@@ -41,3 +71,4 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+

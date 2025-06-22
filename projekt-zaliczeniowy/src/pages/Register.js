@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
+import { db } from '../firebase';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -28,8 +30,16 @@ export default function Register() {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       await updateProfile(user, {
-        displayName: `${formData.firstName} ${formData.lastName}`
+      displayName: `${formData.firstName} ${formData.lastName}`
       });
+
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        role: "user",
+        createdAt: Timestamp.now()
+      });
+
+
       navigate('/login');
     } catch (err) {
       setError(err.message);

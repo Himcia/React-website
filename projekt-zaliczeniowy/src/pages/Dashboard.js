@@ -1,188 +1,192 @@
 import React, { useEffect, useState } from "react";
-import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp } from "firebase/firestore";
+import {
+  getFirestore, collection, query, where, orderBy,
+  onSnapshot, addDoc, updateDoc, doc, Timestamp
+} from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
+import LogoutButton from "../Components/Logoutbutton";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const db = getFirestore();
+  const navigate = useNavigate();
+
 
   const [reservations, setReservations] = useState([]);
   const [filterStatus, setFilterStatus] = useState("active");
-  const [filterDate, setFilterDate] = useState("");
   const [sortField, setSortField] = useState("date");
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     date: "",
-    time: "",
-    participants: "",
+    startTime: "",
+    endTime: "",
+    participants: ""
   });
-  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
-  if (!user) return;
+    if (!user) return;
 
-  const baseQuery = collection(db, "reservations");
+    const ref = collection(db, "reservations");
 
-    let q;
-    if (filterStatus === "all") {
-    q = query(
-        collection(db, "reservations"),
-        where("userId", "==", user.uid),
-        orderBy(sortField)
-    );
-    } else {
-    q = query(
-        collection(db, "reservations"),
-        where("userId", "==", user.uid),
-        where("status", "==", filterStatus),
-        orderBy(sortField)
-    );
+    let q = query(ref, where("createdBy", "==", user.uid));
+
+    if (filterStatus !== "all") {
+      q = query(q, where("status", "==", filterStatus));
     }
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    let res = [];
-    querySnapshot.forEach((doc) => {
-      res.push({ id: doc.id, ...doc.data() });
+    if (sortField) {
+      q = query(q, orderBy(sortField));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log("📦 Rezerwacje z Firestore:", data);
+      setReservations(data);
     });
-    setReservations(res);
-  });
 
-  return () => unsubscribe();
-}, [user, db, filterStatus, sortField]);
+    return unsubscribe;
+  }, [user, db, filterStatus, sortField]);
 
 
-  function handleChange(e) {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  }
+  const handleChange = (e) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    const dateOnly = new Date(`${formData.date}T00:00`);
 
-    if (!formData.date || !formData.time) {
-      alert("Proszę podać datę i godzinę");
-      return;
-    }
-
-    const datetime = new Date(`${formData.date}T${formData.time}`);
+    const newReservation = {
+      title: formData.title,
+      description: formData.description,
+      date: Timestamp.fromDate(dateOnly),
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      participants: formData.participants.split(",").map(p => p.trim()).filter(Boolean),
+      status: "active",
+      createdBy: user.uid,
+      createdAt: Timestamp.now()
+    };
 
     try {
       if (editingId) {
-        // Edycja
-        const docRef = doc(db, "reservations", editingId);
-        await updateDoc(docRef, {
-          title: formData.title,
-          description: formData.description,
-          date: Timestamp.fromDate(datetime),
-          participants: formData.participants ? formData.participants.split(",").map(p => p.trim()) : [],
-        });
+        await updateDoc(doc(db, "reservations", editingId), newReservation);
         setEditingId(null);
       } else {
-        // Dodawanie nowej
-        await addDoc(collection(db, "reservations"), {
-          userId: user.uid,
-          title: formData.title,
-          description: formData.description,
-          date: Timestamp.fromDate(datetime),
-          participants: formData.participants ? formData.participants.split(",").map(p => p.trim()) : [],
-          status: "active",
-          createdAt: Timestamp.now(),
-        });
+        await addDoc(collection(db, "reservations"), newReservation);
       }
-      setFormData({ title: "", description: "", date: "", time: "", participants: "" });
+      setFormData({ title: "", description: "", date: "", startTime: "", endTime: "", participants: "" });
     } catch (error) {
-      console.error("Błąd zapisu rezerwacji:", error);
+      console.error("Błąd zapisu:", error);
     }
-  }
+  };
 
-  function startEdit(reservation) {
+  const startEdit = (reservation) => {
     setEditingId(reservation.id);
     setFormData({
       title: reservation.title,
       description: reservation.description,
       date: reservation.date.toDate().toISOString().split("T")[0],
-      time: reservation.date.toDate().toTimeString().slice(0, 5),
-      participants: reservation.participants.join(", "),
+      startTime: reservation.startTime,
+      endTime: reservation.endTime,
+      participants: (reservation.participants || []).join(", ")
     });
-  }
+  };
 
-  async function cancelReservation(id) {
-  if (!window.confirm("Czy na pewno chcesz anulować tę rezerwację?")) return;
-
-  try {
-    const docRef = doc(db, "reservations", id);
-    await updateDoc(docRef, { status: "cancelled" });
-  } catch (error) {
-    console.error("Błąd podczas anulowania rezerwacji:", error);
-    alert("Nie udało się anulować rezerwacji.");
-  }
-}
+  const cancelReservation = async (id) => {
+    if (!window.confirm("Anulować tę rezerwację?")) return;
+    await updateDoc(doc(db, "reservations", id), { status: "cancelled" });
+  };
 
   return (
-    <div style={{ maxWidth: 600, margin: "auto", padding: 20 }}>
-      <h2>Twoje rezerwacje</h2>
+    <div style={{ maxWidth: 700, margin: "auto", padding: 20, fontFamily: "sans-serif" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ margin: 0 }}>📋 Moje rezerwacje</h2>
+        <div>
+          {user?.role === "admin" && (
+          <button onClick={() => navigate("/admin")} style={{ marginRight: 10 }}>
+          🔑 Panel administratora
+          </button>
+          )}
+          <button onClick={() => navigate("/calendar")} style={{ marginRight: 10 }}>
+            📅 Kalendarz
+          </button>
+          <LogoutButton />
+        </div>
+      </div>
 
-      {/* Filtry */}
-      <div>
+      <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
         <label>
           Status:
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ marginLeft: 8 }}>
             <option value="active">Aktywne</option>
             <option value="cancelled">Anulowane</option>
             <option value="all">Wszystkie</option>
           </select>
         </label>
-        <label style={{ marginLeft: 20 }}>
+        <label>
           Sortuj po:
-          <select value={sortField} onChange={e => setSortField(e.target.value)}>
-            <option value="date">Dacie spotkania</option>
-            <option value="createdAt">Dacie utworzenia</option>
+          <select value={sortField} onChange={e => setSortField(e.target.value)} style={{ marginLeft: 8 }}>
+            <option value="date">Data spotkania</option>
+            <option value="createdAt">Data utworzenia</option>
           </select>
         </label>
       </div>
 
-      {/* Lista */}
-      <ul>
-        {reservations.map((res) => (
-          <li key={res.id} style={{ marginTop: 10, borderBottom: "1px solid #ccc", paddingBottom: 10 }}>
-            <strong>{res.title}</strong> — {res.date.toDate().toLocaleString()}
-            <br />
-            {res.description}
-            <br />
-            Uczestnicy: {res.participants.join(", ")}
-            <br />
-            Status: {res.status}
-            <br />
-            <button onClick={() => startEdit(res)}>Edytuj</button>
-            <button onClick={() => cancelReservation(res.id)} style={{ marginLeft: 10 }}>Anuluj</button>
+      <ul style={{ listStyle: "none", padding: 0 }}>
+        {reservations.map(res => (
+          <li key={res.id} style={{
+            background: "#f9f9f9",
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 12,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+          }}>
+            <h4 style={{ marginTop: 0 }}>{res.title || "(Bez tytułu)"}</h4>
+            <div><strong>📅 Data:</strong> {res.date.toDate().toLocaleDateString()}</div>
+            <div><strong>🕒 Godzina:</strong> {res.startTime} – {res.endTime}</div>
+            <div><strong>📝 Opis:</strong> {res.description || "—"}</div>
+            <div><strong>👥 Uczestnicy:</strong> {res.participants.join(", ") || "—"}</div>
+            <div><strong>🔖 Status:</strong> {res.status}</div>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={() => startEdit(res)}>✏️ Edytuj</button>
+              <button onClick={() => cancelReservation(res.id)} style={{ marginLeft: 10 }}>❌ Anuluj</button>
+            </div>
           </li>
         ))}
       </ul>
 
-      {/* Formularz dodawania/edycji */}
-      <h3>{editingId ? "Edytuj rezerwację" : "Dodaj rezerwację"}</h3>
-      <form onSubmit={handleSubmit}>
-        <div>
+      <h3 style={{ marginTop: 30 }}>{editingId ? "✏️ Edytuj rezerwację" : "➕ Dodaj rezerwację"}</h3>
+      <form onSubmit={handleSubmit} style={{ marginTop: 10 }}>
+        <div style={{ marginBottom: 10 }}>
           <label>Tytuł:</label><br />
           <input type="text" name="title" value={formData.title} onChange={handleChange} required />
         </div>
-        <div>
+        <div style={{ marginBottom: 10 }}>
           <label>Opis:</label><br />
           <textarea name="description" value={formData.description} onChange={handleChange} />
         </div>
-        <div>
+        <div style={{ marginBottom: 10 }}>
           <label>Data:</label><br />
           <input type="date" name="date" value={formData.date} onChange={handleChange} required />
         </div>
-        <div>
-          <label>Godzina:</label><br />
-          <input type="time" name="time" value={formData.time} onChange={handleChange} required />
+        <div style={{ marginBottom: 10 }}>
+          <label>Godzina rozpoczęcia:</label><br />
+          <input type="time" name="startTime" value={formData.startTime} onChange={handleChange} required />
         </div>
-        <div>
+        <div style={{ marginBottom: 10 }}>
+          <label>Godzina zakończenia:</label><br />
+          <input type="time" name="endTime" value={formData.endTime} onChange={handleChange} required />
+        </div>
+        <div style={{ marginBottom: 10 }}>
           <label>Uczestnicy (oddziel przecinkami):</label><br />
           <input type="text" name="participants" value={formData.participants} onChange={handleChange} />
         </div>
-        <button type="submit" style={{ marginTop: 10 }}>{editingId ? "Zapisz zmiany" : "Dodaj rezerwację"}</button>
+        <button type="submit">{editingId ? "Zapisz zmiany" : "Dodaj rezerwację"}</button>
       </form>
     </div>
   );

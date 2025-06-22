@@ -4,6 +4,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminPanel from "./pages/AdminPanel";
 import { useAuth } from "./context/AuthContext";
+import CalendarView from "./Components/CalendarView";
 
 function App() {
   const { user } = useAuth();
@@ -23,6 +24,10 @@ function App() {
       <Route
         path="/admin"
         element={user?.role === "admin" ? <AdminPanel /> : <Navigate to="/" />}
+      />
+      <Route
+        path="/calendar"
+        element={user ? <CalendarView /> : <Navigate to="/" />}
       />
     </Routes>
   );
