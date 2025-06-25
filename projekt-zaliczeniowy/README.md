@@ -20,5 +20,5 @@ System rezerwacji stworzony w React + Firebase. Pozwala użytkownikom na zakład
 1. **Klonuj repozytorium:**
 
 ```bash
-git clone https://github.com/twoj-login/projekt-rezerwacje.git
+git clone https://github.com/Himcia/React-website.git
 cd projekt-rezerwacje
