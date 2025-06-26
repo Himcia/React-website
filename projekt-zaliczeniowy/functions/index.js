@@ -1,8 +1,17 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
 const express = require("express");
 admin.initializeApp();
 const db = admin.firestore();
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "TWÓJ_EMAIL@gmail.com",
+    pass: "HASŁO_LUB_APP_PASSWORD"
+  }
+});
 
 const app = express();
 app.use(express.json());
@@ -44,3 +53,41 @@ app.delete("/reservations/:id", async (req, res) => {
 });
 
 exports.api = functions.https.onRequest(app);
+
+exports.sendReminders = functions.pubsub.schedule("every day 08:00")
+  .timeZone("Europe/Warsaw")
+  .onRun(async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().split("T")[0];
+
+    const snapshot = await db.collection("reservations")
+      .where("dateStr", "==", dateStr)
+      .where("status", "==", "active")
+      .get();
+
+    for (const doc of snapshot.docs) {
+      const r = doc.data();
+      const participants = r.participants || [];
+
+      for (const email of participants) {
+        await transporter.sendMail({
+          from: '"System Rezerwacji" <twoj@email.com>',
+          to: email,
+          subject: `📅 Przypomnienie: ${r.title || "Twoje spotkanie"} - ${dateStr}`,
+          html: `
+            <p>Cześć!</p>
+            <p>Przypominamy o nadchodzącym spotkaniu:</p>
+            <ul>
+              <li><strong>Tytuł:</strong> ${r.title}</li>
+              <li><strong>Data:</strong> ${dateStr}</li>
+              <li><strong>Godzina:</strong> ${r.startTime} – ${r.endTime}</li>
+            </ul>
+            <p>Do zobaczenia!</p>
+          `
+        });
+      }
+    }
+
+    return null;
+  });
