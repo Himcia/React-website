@@ -5,12 +5,16 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import { getFirestore, collection, query, onSnapshot } from "firebase/firestore";
 import { Button, Container, Typography, Paper, Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
+import CalendarGlobalStyles from '../Components/CalendarGlobalStyles';
 
 
 
 export default function CalendarViewMUI() {
   const [events, setEvents] = useState([]);
   const navigate = useNavigate();
+  const theme = useTheme();
+
   useEffect(() => {
     const db = getFirestore();
     const q = query(collection(db, "reservations"));
@@ -40,7 +44,15 @@ export default function CalendarViewMUI() {
         📅 Kalendarz rezerwacji
       </Typography>
 
-      <Paper elevation={3} sx={{ p: 2, backgroundColor: "#fff" }}>
+      <Paper
+        elevation={3}
+        sx={{
+          p: 2,
+          backgroundColor: theme.palette.background.paper,
+          color: theme.palette.text.primary,
+        }}
+      >
+        <CalendarGlobalStyles />
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin]}
           initialView="dayGridMonth"

@@ -19,11 +19,9 @@ code {
 .fc-toolbar-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.8rem;
-  color: #403433;
 }
 
 .fc .fc-button {
-  background-color: #403433 !important;
   color: #fff !important;
   border: 2px solid !important;
   border-color: #403433 !important;
@@ -46,4 +44,16 @@ code {
 
 .fc .fc-day-today {
   background-color: rgba(217, 179, 176, 0.2);
+}
+.fc {
+  background-color: transparent;
+  color: inherit;
+}
+
+.fc td, .fc th {
+  border-color: rgba(255,255,255,0.1);
+}
+
+.fc-daygrid-day.fc-day-today {
+  background-color: rgba(255, 255, 255, 0.1);
 }

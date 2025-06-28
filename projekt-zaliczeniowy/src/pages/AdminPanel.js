@@ -152,7 +152,7 @@ export default function AdminPanelMUI() {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Filtruj po e-mailu organizatora"
+            label="Filtruj po organizatorze"
             value={userEmailFilter}
             onChange={e => setUserEmailFilter(e.target.value.toLowerCase())}
           />

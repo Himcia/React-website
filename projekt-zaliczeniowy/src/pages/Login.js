@@ -1,40 +1,127 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from "react";
+import {
+  Container,
+  Paper,
+  Typography,
+  Box,
+  TextField,
+  Button,
+  Alert
+} from "@mui/material";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from '@mui/material/styles';
+
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
   const { login } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const theme = useTheme();
 
-    try {
-      const { user } = await signInWithEmailAndPassword(auth, email, password);
-      login({
-        email: user.email,
-        displayName: user.displayName,
-        role: user.email === 'admin@example.com' ? 'admin' : 'user'
-      });
-      navigate('/dashboard');
-    } catch (err) {
-      setError('Nieprawidłowe dane logowania.');
-    }
+  const autofillStyles = {
+    '& input:-webkit-autofill': {
+      WebkitBoxShadow: `0 0 0 1000px ${theme.palette.background.default} inset`,
+      WebkitTextFillColor: theme.palette.text.primary,
+      transition: 'background-color 5000s ease-in-out 0s',
+    },
   };
 
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      await login(email, password);
+      navigate("/dashboard");
+    } catch {
+      setError("❌ Nie udało się zalogować. Sprawdź dane.");
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit}>
-      <h2>Logowanie</h2>
-      <input type="email" placeholder="Email" onChange={(e) => setEmail(e.target.value)} />
-      <input type="password" placeholder="Hasło" onChange={(e) => setPassword(e.target.value)} />
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <button type="submit">Zaloguj się</button>
-    </form>
+    <Container maxWidth="sm">
+      <Paper elevation={3} sx={{ mt: 8, p: 4 }}>
+        <Typography variant="h5" gutterBottom sx={{ fontFamily: 'Bebas Neue' }}>
+          🔐 Logowanie
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            label="Email"
+            type="email"
+            variant="outlined"
+            autoComplete="off"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            sx={{
+              mb: 2,
+              '& input:-webkit-autofill': {
+                WebkitBoxShadow: `0 0 0 0px ${theme.palette.background.paper} inset`,
+                WebkitTextFillColor: theme.palette.text.primary,
+                transition: 'background-color 5000s ease-in-out 0s',
+                autofillStyles
+              },
+            }}
+          />
+
+
+          <TextField
+            fullWidth
+            label="Hasło"
+            type="password"
+            variant="outlined"
+            autoComplete="off"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            sx={{
+              mb: 2,
+                '& input:-webkit-autofill': {
+                WebkitBoxShadow: `0 0 0 0px ${theme.palette.background.paper} inset`,
+                WebkitTextFillColor: theme.palette.text.primary,
+                transition: 'background-color 5000s ease-in-out 0s',
+                autofillStyles
+              },
+            }}
+          />
+
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            sx={{
+              backgroundColor: "#403433",
+              "&:hover": { backgroundColor: "#D9B3B0", color: "#403433" }
+            }}
+          >
+            🔓 Zaloguj się
+          </Button>
+
+          <Typography variant="body2" sx={{ mt: 2, textAlign: "center" }}>
+            Nie masz konta?{" "}
+            <Button
+              variant="text"
+              size="small"
+              component={Link}
+              to="/register"
+              sx={{ textTransform: "none", fontWeight: "bold" }}
+            >
+              Zarejestruj się
+            </Button>
+          </Typography>
+        </Box>
+      </Paper>
+    </Container>
   );
 }
