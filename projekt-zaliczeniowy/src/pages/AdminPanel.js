@@ -43,13 +43,17 @@ export default function AdminPanelMUI() {
           const data = docSnap.data();
           const userRef = doc(db, "users", data.createdBy);
           const userSnap = await getDoc(userRef);
-          const creatorEmail = userSnap.exists() ? userSnap.data().email : "Nieznany";
-          return {
+          const userData = userSnap.data();
+          const creatorName = userSnap.exists()
+            ? `${userData.firstName || ""} ${userData.lastName || ""}`.trim()
+            : "Nieznany";
+         return {
             id: docSnap.id,
             ...data,
-            creatorEmail,
+            creatorName,
             participantsEmails: data.participants || [],
           };
+
         })
       );
       setReservations(dataWithEmails);
@@ -57,14 +61,27 @@ export default function AdminPanelMUI() {
     return () => unsubscribe();
   }, [db]);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const snapshot = await getDocs(collection(db, "users"));
-      const users = snapshot.docs.map((doc) => doc.data());
-      setAllUsers(users);
-    };
-    fetchUsers();
-  }, [db]);
+  const [emailToName, setEmailToName] = useState(new Map());
+  const resolveName = (email) => emailToName.get(email) || email;
+
+useEffect(() => {
+  const fetchUsers = async () => {
+    const snapshot = await getDocs(collection(db, "users"));
+    const users = snapshot.docs.map((doc) => doc.data());
+    setAllUsers(users);
+
+    const map = new Map();
+    users.forEach((u) => {
+      if (u.email) {
+        map.set(u.email, `${u.firstName || ""} ${u.lastName || ""}`.trim());
+      }
+    });
+
+    setEmailToName(map);
+  };
+  fetchUsers();
+}, [db]);
+
 
   const cancelReservation = async (id, title = "") => {
   const confirmed = window.confirm(
@@ -76,6 +93,18 @@ export default function AdminPanelMUI() {
     await updateDoc(doc(db, "reservations", id), { status: "cancelled" });
   } catch {
     alert("❌ Błąd podczas anulowania rezerwacji.");
+  }
+};
+const restoreReservation = async (id, title = "") => {
+  const confirmed = window.confirm(
+    `Czy na pewno chcesz przywrócić rezerwację${title ? ` „${title}”` : ""}?`
+  );
+  if (!confirmed) return;
+
+  try {
+    await updateDoc(doc(db, "reservations", id), { status: "active" });
+  } catch {
+    alert("❌ Błąd podczas przywracania rezerwacji.");
   }
 };
 
@@ -234,48 +263,67 @@ export default function AdminPanelMUI() {
               <Typography variant="h6">{r.title || "(Bez tytułu)"}</Typography>
               <Typography variant="body2">📅 {r.date?.toDate?.().toLocaleDateString()}</Typography>
               <Typography variant="body2">🕒 {r.startTime} – {r.endTime}</Typography>
-              <Typography variant="body2">👤 {r.creatorEmail}</Typography>
+              <Typography variant="body2">👤 {r.creatorName}</Typography>
               <Typography variant="body2">📌 {r.status}</Typography>
               {r.participantsEmails?.length > 0 && (
                 <Box sx={{ mt: 1 }}>
                   <Typography variant="body2">👥 Uczestnicy:</Typography>
                   <ul style={{ marginTop: 4, paddingLeft: 20 }}>
-                    {r.participantsEmails.map((e, i) => (
-                      <li key={i}>{e}</li>
+                    {r.participantsEmails.map((email, i) => (
+                      <li key={i} style={{ fontSize: "0.875rem", lineHeight: 1.5 }}>
+                        {resolveName(email)}
+                      </li>
                     ))}
                   </ul>
                 </Box>
               )}
-              <Divider sx={{ my: 1 }} />
-              <Button
-                onClick={() => {
-                  setEditingId(r.id);
-                  setEditedData({
-                    title: r.title,
-                    startTime: r.startTime,
-                    endTime: r.endTime,
-                    participants: [...r.participantsEmails],
-                  });
-                }}
-                variant="outlined"
-                size="small"
-                sx={{ mr: 1 }}
-              >
-                ✏️ Edytuj
-              </Button>
-              <Button
-                onClick={() => cancelReservation(r.id)}
-                disabled={r.status === "cancelled"}
-                variant="contained"
-                size="small"
-                color="secondary"
-              >
-                ❌ Anuluj
-              </Button>
-              <Button
-                onClick={() =>deleteReservation(r.id)} variant="outlined" size="small" color="error" sx={{ ml: 1 }} > 
-                🗑️ Usuń 
-                </Button> 
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
+                <Button
+                  onClick={() => {
+                    setEditingId(r.id);
+                    setEditedData({
+                      title: r.title,
+                      startTime: r.startTime,
+                      endTime: r.endTime,
+                      participants: [...r.participantsEmails],
+                    });
+                  }}
+                  variant="outlined"
+                  size="small"
+                >
+                  ✏️ Edytuj
+                </Button>
+
+                {r.status === "cancelled" ? (
+                  <Button
+                    onClick={() => restoreReservation(r.id, r.title)}
+                    variant="outlined"
+                    size="small"
+                    color="success"
+                  >
+                    ♻️ Przywróć
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => cancelReservation(r.id, r.title)}
+                    variant="outlined"
+                    size="small"
+                    color="error"
+                  >
+                    ❌ Anuluj
+                  </Button>
+                )}
+
+                <Button
+                  onClick={() => deleteReservation(r.id)}
+                  variant="outlined"
+                  size="small"
+                  color="error"
+                >
+                  🗑️ Usuń
+                </Button>
+              </Box>
+
                 </Box> )} 
                 </Paper> ))} 
                 </Container> ); 

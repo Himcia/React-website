@@ -52,9 +52,12 @@ export default function Register() {
 
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         role: "user",
         createdAt: Timestamp.now()
       });
+
 
       navigate('/login');
     } catch (err) {

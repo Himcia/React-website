@@ -108,18 +108,32 @@ export default function Login() {
             🔓 Zaloguj się
           </Button>
 
-          <Typography variant="body2" sx={{ mt: 2, textAlign: "center" }}>
-            Nie masz konta?{" "}
-            <Button
-              variant="text"
-              size="small"
-              component={Link}
-              to="/register"
-              sx={{ textTransform: "none", fontWeight: "bold" }}
-            >
-              Zarejestruj się
-            </Button>
-          </Typography>
+          <Box sx={{ textAlign: "center", mt: 2 }}>
+                        <Typography variant="body2" >
+              Nie pamiętasz hasła?{" "}
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => navigate("/forgot-password")}
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              >
+                Zresetuj Hasło
+              </Button>
+            <Typography variant="body2">
+              Nie masz konta?{" "}
+              <Button
+                variant="text"
+                size="small"
+                component={Link}
+                to="/register"
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              >
+                Zarejestruj się
+              </Button>
+            </Typography>
+            </Typography>
+          </Box>
+
         </Box>
       </Paper>
     </Container>

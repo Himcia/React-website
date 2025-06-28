@@ -9,7 +9,8 @@ import { useState, useEffect } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { lightTheme, darkTheme } from './theme';
 import ThemeToggle from './Components/ThemeToggle';
-
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 function App() {
   const [mode, setMode] = useState('light');
   const { user } = useAuth();
@@ -34,6 +35,9 @@ function App() {
         <Route path="/admin" element={user?.role === "admin" ? <AdminPanel /> : <Navigate to="/" />} />
         <Route path="/calendar" element={user ? <CalendarView /> : <Navigate to="/" />} />
         <Route path="*" element={<Navigate to="/" />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
       </Routes>
     </ThemeProvider>
   );

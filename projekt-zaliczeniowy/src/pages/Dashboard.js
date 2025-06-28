@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Container, Typography, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Button, Paper, Box, FormGroup,
@@ -33,23 +33,80 @@ export default function DashboardMUI() {
   const [participantFilter, setParticipantFilter] = useState("");
   const [sortField, setSortField] = useState("date");
   const [editingId, setEditingId] = useState(null);
+  const userEmail = user?.email;
+
+
+  const [emailToName, setEmailToName] = useState(new Map());
+  const resolveName = (email) => emailToName.get(email) || email;
+  const userEvents = useMemo(() => {
+    return reservations.filter(event =>
+      event.participants?.includes(userEmail)
+    );
+  }, [reservations, userEmail]);
+  const handleCancel = async (id) => {
+  const confirm = window.confirm("Czy na pewno chcesz anulować tę rezerwację?");
+  if (!confirm) return;
+
+  await updateDoc(doc(db, "reservations", id), {
+    status: "anulowana"
+  });
+};
+
 
   useEffect(() => {
-    getDocs(collection(db, "users")).then((snapshot) =>
-      setAllUsers(snapshot.docs.map((doc) => doc.data()))
-    );
-  }, [db]);
+  getDocs(collection(db, "users")).then((snapshot) => {
+    const users = snapshot.docs.map((doc) => doc.data());
+    setAllUsers(users);
+
+    const nameMap = new Map();
+    users.forEach((u) => {
+      if (u.email) {
+        nameMap.set(u.email, `${u.firstName || ""} ${u.lastName || ""}`.trim());
+      }
+    });
+
+    setEmailToName(nameMap);
+  });
+}, [db]);
 
   useEffect(() => {
     if (!user) return;
-    let q = query(collection(db, "reservations"), where("createdBy", "==", user.uid));
-    if (filterStatus !== "all") q = query(q, where("status", "==", filterStatus));
-    if (sortField) q = query(q, orderBy(sortField));
-    const unsubscribe = onSnapshot(q, (snap) =>
-      setReservations(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+
+    const createdQuery = query(
+      collection(db, "reservations"),
+      where("createdBy", "==", user.uid)
     );
-    return unsubscribe;
-  }, [user, db, filterStatus, sortField]);
+
+    const participantQuery = query(
+      collection(db, "reservations"),
+      where("participants", "array-contains", user.email)
+    );
+
+        const unsubCreated = onSnapshot(createdQuery, (snap) => {
+        const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setReservations((prev) => {
+          const all = [...prev, ...data];
+          const map = new Map(all.map((r) => [r.id, r]));
+          return [...map.values()];
+        });
+      });
+
+      const unsubParticipants = onSnapshot(participantQuery, (snap) => {
+        const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setReservations((prev) => {
+          const all = [...prev, ...data];
+          const map = new Map(all.map((r) => [r.id, r]));
+          return [...map.values()];
+        });
+      });
+
+
+    return () => {
+      unsubCreated();
+      unsubParticipants();
+    };
+  }, [user, db]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,11 +138,16 @@ export default function DashboardMUI() {
     }
   };
 
-  const filtered = reservations.filter(
-    (r) =>
-      !participantFilter ||
-      r.participants?.some((email) => email.toLowerCase().includes(participantFilter.toLowerCase()))
-  );
+  const filtered = reservations.filter((r) => {
+    if (!participantFilter) return true;
+
+    return r.participants?.some((email) => {
+      const fullName = emailToName.get(email) || email;
+      return fullName.toLowerCase().includes(participantFilter.toLowerCase());
+    });
+  });
+
+
 
   const formatDateRange = (date, startTime, endTime) => {
     const day = date.toDate().toISOString().split("T")[0].replace(/-/g, "");
@@ -156,33 +218,50 @@ export default function DashboardMUI() {
           <Typography variant="body2">📅 {res.date.toDate().toLocaleDateString()}</Typography>
           <Typography variant="body2">🕒 {res.startTime} – {res.endTime}</Typography>
           <Typography variant="body2">📝 {res.description || "—"}</Typography>
-          <Typography variant="body2">👥 {res.participants?.join(", ") || "—"}</Typography>
+          <Typography variant="body2">
+            👥 {res.participants?.map(resolveName).join(", ") || "—"}
+          </Typography>
           <Typography variant="body2" sx={{ mb: 1 }}>📌 {res.status}</Typography>
-          <Button 
-          variant="outlined"
-            size="small"
-            sx={{ ml: 1, mt: 1 }}
-            onClick={() => {
-            setEditingId(res.id);
-            setFormData({
-              title: res.title,
-              description: res.description,
-              date: res.date.toDate().toISOString().split("T")[0],
-              startTime: res.startTime,
-              endTime: res.endTime,
-              participants: res.participants || []
-            });
-          }}>✏️ Edytuj</Button>
-          <Button
+          {res.createdBy === user.uid && (
+            <Button 
             variant="outlined"
-            size="small"
-            sx={{ ml: 1, mt: 1 }}
-            href={`https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(res.title || "Rezerwacja")}&dates=${formatDateRange(res.date, res.startTime, res.endTime)}&details=${encodeURIComponent(res.description || "")}&location=Online`}
-            target="_blank"
-          >
-            📅 Dodaj do Kalendarza Google
-          </Button>
+              size="small"
+              sx={{ ml: 1, mt: 1 }}
+              onClick={() => {
+              setEditingId(res.id);
+              setFormData({
+                title: res.title,
+                description: res.description,
+                date: res.date.toDate().toISOString().split("T")[0],
+                startTime: res.startTime,
+                endTime: res.endTime,
+                participants: res.participants || []
+              });
+            }}>✏️ Edytuj</Button>
+            )}
+            {res.createdBy === user.uid && (
+               <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="error"
+                  sx={{ ml: 1, mt: 1 }}
+                  onClick={() => handleCancel(res.id)}
+                >
+                  ❌ Anuluj
+                </Button>
+              </>
+            )}
 
+            <Button
+              variant="outlined"
+              size="small"
+              sx={{ ml: 1, mt: 1 }}
+              href={`https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(res.title || "Rezerwacja")}&dates=${formatDateRange(res.date, res.startTime, res.endTime)}&details=${encodeURIComponent(res.description || "")}&location=Online`}
+              target="_blank"
+            >
+              📅 Dodaj do Kalendarza Google
+            </Button>
         </Paper>
       ))}
 
@@ -257,30 +336,38 @@ export default function DashboardMUI() {
           </Grid>
         </Grid>
 
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="body1" sx={{ mb: 1 }}>
-            👥 Wybierz uczestników:
+        <FormGroup>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+            Wybierz uczestników:
           </Typography>
-          <FormGroup>
-            {allUsers.map((u) => (
+
+          {allUsers.map((user) => {
+            const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+
+            return (
               <FormControlLabel
-                key={u.email}
+                key={user.email}
                 control={
                   <Checkbox
-                    checked={formData.participants.includes(u.email)}
+                    checked={formData.participants.includes(user.email)}
                     onChange={(e) => {
                       const updated = e.target.checked
-                        ? [...formData.participants, u.email]
-                        : formData.participants.filter((mail) => mail !== u.email);
-                      setFormData((f) => ({ ...f, participants: updated }));
+                        ? [...formData.participants, user.email]
+                        : formData.participants.filter((email) => email !== user.email);
+
+                      setFormData((prev) => ({
+                        ...prev,
+                        participants: updated,
+                      }));
                     }}
                   />
                 }
-                label={u.email}
+                label={fullName || user.email}
               />
-            ))}
-          </FormGroup>
-        </Box>
+            );
+          })}
+        </FormGroup>
+
 
         <Button
           type="submit"
