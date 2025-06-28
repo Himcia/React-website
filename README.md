@@ -8,18 +8,18 @@ Stylizacja oparta o Material UI i FullCalendar z dynamicznym motywem jasny/ciemn
 
 ## 🚀 Funkcje
 
-🔐 Rejestracja i logowanie użytkowników (e-mail + hasło)
-📬 Resetowanie hasła przez e-mail + własna strona zmiany hasła (/reset-password)
-🗓️ Tworzenie i przeglądanie rezerwacji
-📆 Widok kalendarza (FullCalendar + Material UI)
-🌒 Tryb jasny i ciemny
-💄 Stylizacja kalendarza zgodna z kolorystyką aplikacji (różowo-bordowy motyw)
-✅ Podświetlanie dnia dzisiejszego w kalendarzu
-🧑‍💼 Panel administratora do zarządzania wszystkimi rezerwacjami i użytkownikami
-🧾 Wyświetlanie imion i nazwisk zamiast e-maili (uczestnicy, organizatorzy)
-🔄 Obsługa ról użytkowników (user / admin) – nadawana w Firebase
-☁️ REST API przez Firebase Functions (opcjonalnie)
-🌐 Responsywny interfejs i dynamiczne filtrowanie po nazwisku, statusie, itp.
+- 🔐 Rejestracja i logowanie użytkowników (e-mail + hasło)
+- 📬 Resetowanie hasła przez e-mail + własna strona zmiany hasła (/reset-password)
+- 🗓️ Tworzenie i przeglądanie rezerwacji
+- 📆 Widok kalendarza (FullCalendar + Material UI)
+- 🌒 Tryb jasny i ciemny
+-  Stylizacja kalendarza zgodna z kolorystyką aplikacji (różowo-bordowy motyw)
+- ✅ Podświetlanie dnia dzisiejszego w kalendarzu
+- 🧑‍💼 Panel administratora do zarządzania wszystkimi rezerwacjami i użytkownikami
+- 🧾 Wyświetlanie imion i nazwisk zamiast e-maili (uczestnicy, organizatorzy)
+- 🔄 Obsługa ról użytkowników (user / admin) – nadawana w Firebase
+- ☁️ REST API przez Firebase Functions (opcjonalnie)
+- 🌐 Responsywny interfejs i dynamiczne filtrowanie po nazwisku, statusie, itp.
 
 ---
 
