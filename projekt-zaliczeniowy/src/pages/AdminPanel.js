@@ -1,89 +1,113 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  getFirestore,
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  updateDoc,
-  doc,
-  getDoc,
-  deleteDoc
-} from "firebase/firestore";
+  Container,
+  Typography,
+  Grid,
+  Paper,
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
+  Button,
+  Divider,
+  Checkbox,             
+  FormControlLabel      
+} from "@mui/material";
 
-export default function AdminPanel() {
+import {
+  getFirestore, collection, query, orderBy, onSnapshot,
+  updateDoc, doc, getDoc, deleteDoc, getDocs
+} from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import LogoutButton from "../Components/Logoutbutton";
+
+export default function AdminPanelMUI() {
   const [reservations, setReservations] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editedData, setEditedData] = useState({});
   const [filter, setFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [userEmailFilter, setUserEmailFilter] = useState("");
+  const [allUsers, setAllUsers] = useState([]);
 
+  const db = getFirestore();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const db = getFirestore();
     const q = query(collection(db, "reservations"), orderBy("date"));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const docs = snapshot.docs;
       const dataWithEmails = await Promise.all(
-        docs.map(async (docSnap) => {
-          const reservation = docSnap.data();
-          const userRef = doc(db, "users", reservation.createdBy);
+        snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          const userRef = doc(db, "users", data.createdBy);
           const userSnap = await getDoc(userRef);
           const creatorEmail = userSnap.exists() ? userSnap.data().email : "Nieznany";
-          const participantsEmails = reservation.participants || [];
           return {
             id: docSnap.id,
-            ...reservation,
+            ...data,
             creatorEmail,
-            participantsEmails
+            participantsEmails: data.participants || [],
           };
         })
       );
       setReservations(dataWithEmails);
     });
-
     return () => unsubscribe();
-  }, []);
+  }, [db]);
 
-  const cancelReservation = async (id) => {
-    const db = getFirestore();
-    try {
-      await updateDoc(doc(db, "reservations", id), { status: "cancelled" });
-    } catch (error) {
-      alert("❌ Błąd podczas anulowania rezerwacji.");
-    }
-  };
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const snapshot = await getDocs(collection(db, "users"));
+      const users = snapshot.docs.map((doc) => doc.data());
+      setAllUsers(users);
+    };
+    fetchUsers();
+  }, [db]);
+
+  const cancelReservation = async (id, title = "") => {
+  const confirmed = window.confirm(
+    `Czy na pewno chcesz anulować rezerwację${title ? ` „${title}”` : ""}?`
+  );
+  if (!confirmed) return;
+
+  try {
+    await updateDoc(doc(db, "reservations", id), { status: "cancelled" });
+  } catch {
+    alert("❌ Błąd podczas anulowania rezerwacji.");
+  }
+};
+
 
   const saveEdit = async (id) => {
-    const db = getFirestore();
     try {
-      await updateDoc(doc(db, "reservations", id), editedData);
+      await updateDoc(doc(db, "reservations", id), {
+        ...editedData,
+        participants: editedData.participants || [],
+      });
+
       setEditingId(null);
-    } catch (error) {
+    } catch {
       alert("❌ Nie udało się zapisać zmian.");
     }
   };
 
   const deleteReservation = async (id) => {
-  const confirmed = window.confirm("Czy na pewno chcesz trwale usunąć tę rezerwację?");
-  if (!confirmed) return;
-
-  const db = getFirestore();
-  try {
-    await deleteDoc(doc(db, "reservations", id));
-    setReservations(prev => prev.filter((r) => r.id !== id));
-  } catch (error) {
-    alert("❌ Nie udało się usunąć rezerwacji.");
-  }
-};
-
+    const confirmed = window.confirm("Czy na pewno chcesz usunąć rezerwację?");
+    if (!confirmed) return;
+    try {
+      await deleteDoc(doc(db, "reservations", id));
+      setReservations(prev => prev.filter((r) => r.id !== id));
+    } catch {
+      alert("❌ Nie udało się usunąć rezerwacji.");
+    }
+  };
 
   const filtered = reservations.filter((r) => {
-    const matchesStatus = filter === "all" || r.status === filter;
-    const matchesEmail =
-      !userEmailFilter || r.creatorEmail?.toLowerCase().includes(userEmailFilter);
-    return matchesStatus && matchesEmail;
+    const matchStatus = filter === "all" || r.status === filter;
+    const matchEmail = !userEmailFilter || r.creatorEmail.toLowerCase().includes(userEmailFilter);
+    return matchStatus && matchEmail;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -93,103 +117,166 @@ export default function AdminPanel() {
   });
 
   return (
-    <div style={{ maxWidth: 900, margin: "auto", padding: 20 }}>
-      <h2>📋 Panel administratora</h2>
+    <Container maxWidth="md" sx={{ pt: 4 }}>
+      <Grid container justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Typography variant="h4">👑 Panel administratora</Typography>
+        <Box>
+          <Button onClick={() => navigate("/dashboard")} sx={{ mr: 1 }} variant="outlined">
+            🏠 Powrót do dashboardu
+          </Button>
+          <LogoutButton />
+        </Box>
+      </Grid>
 
-      <div style={{ marginBottom: 16 }}>
-        <label>🔎 Filtruj: </label>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ marginRight: 12 }}>
-          <option value="all">Wszystkie</option>
-          <option value="active">Aktywne</option>
-          <option value="cancelled">Anulowane</option>
-        </select>
-
-        <label>↕️ Sortuj po: </label>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-          <option value="date">Dacie</option>
-          <option value="title">Tytule</option>
-          <option value="status">Statusie</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Filtruj po e-mailu organizatora"
-          value={userEmailFilter}
-          onChange={(e) => setUserEmailFilter(e.target.value.toLowerCase())}
-          style={{ marginLeft: 12, padding: "4px 8px", width: "200px" }}
-        />
-
-      </div>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth>
+            <InputLabel>Status</InputLabel>
+            <Select value={filter} label="Status" onChange={e => setFilter(e.target.value)}>
+              <MenuItem value="all">Wszystkie</MenuItem>
+              <MenuItem value="active">Aktywne</MenuItem>
+              <MenuItem value="cancelled">Anulowane</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth>
+            <InputLabel>Sortuj po</InputLabel>
+            <Select value={sortBy} label="Sortuj" onChange={e => setSortBy(e.target.value)}>
+              <MenuItem value="date">Dacie</MenuItem>
+              <MenuItem value="title">Tytule</MenuItem>
+              <MenuItem value="status">Statusie</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Filtruj po e-mailu organizatora"
+            value={userEmailFilter}
+            onChange={e => setUserEmailFilter(e.target.value.toLowerCase())}
+          />
+        </Grid>
+      </Grid>
 
       {sorted.map((r) => (
-        <div key={r.id} style={{
-          border: "1px solid #ccc",
-          borderRadius: 8,
-          padding: 12,
-          marginBottom: 12,
-          backgroundColor: "#f8f8f8"
-        }}>
+        <Paper key={r.id} sx={{ p: 2, mb: 2 }}>
           {editingId === r.id ? (
-            <>
-              <input
+            <Box>
+              <TextField
+                fullWidth
+                label="Tytuł"
                 value={editedData.title || ""}
                 onChange={(e) => setEditedData({ ...editedData, title: e.target.value })}
-                placeholder="Tytuł"
+                sx={{ mb: 1 }}
               />
-              <input
-                type="time"
-                value={editedData.startTime || ""}
-                onChange={(e) => setEditedData({ ...editedData, startTime: e.target.value })}
-              />
-              <input
-                type="time"
-                value={editedData.endTime || ""}
-                onChange={(e) => setEditedData({ ...editedData, endTime: e.target.value })}
-              />
-              <button onClick={() => saveEdit(r.id)}>💾 Zapisz</button>
-              <button onClick={() => setEditingId(null)}>❌ Anuluj</button>
-            </>
+
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    label="Start"
+                    type="time"
+                    value={editedData.startTime || ""}
+                    onChange={(e) => setEditedData({ ...editedData, startTime: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    label="Koniec"
+                    type="time"
+                    value={editedData.endTime || ""}
+                    onChange={(e) => setEditedData({ ...editedData, endTime: e.target.value })}
+                  />
+                </Grid>
+              </Grid>
+
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  👥 Wybierz uczestników:
+                </Typography>
+                {allUsers.map((user) => (
+                  <FormControlLabel
+                    key={user.email}
+                    control={
+                      <Checkbox
+                        checked={editedData.participants?.includes(user.email) || false}
+                        onChange={(e) => {
+                          const updated = e.target.checked
+                            ? [...(editedData.participants || []), user.email]
+                            : editedData.participants.filter((email) => email !== user.email);
+
+                          setEditedData((prev) => ({
+                            ...prev,
+                            participants: updated,
+                          }));
+                        }}
+                      />
+                    }
+                    label={user.email}
+                  />
+                ))}
+              </Box>
+
+              <Box sx={{ mt: 2 }}>
+                <Button onClick={() => saveEdit(r.id)} variant="contained" sx={{ mr: 1 }}>
+                  💾 Zapisz
+                </Button>
+                <Button onClick={() => setEditingId(null)} variant="outlined" color="secondary">
+                  ❌ Anuluj
+                </Button>
+              </Box>
+            </Box>
+
           ) : (
-            <>
-              <h4>{r.title || "Bez tytułu"}</h4>
-              <div><strong>📅 Data:</strong> {r.date?.toDate?.().toLocaleDateString()}</div>
-              <div><strong>⏰ Godzina:</strong> {r.startTime} – {r.endTime}</div>
-              <div><strong>👤 Organizator:</strong> {r.creatorEmail}</div>
-              <div><strong>📌 Status:</strong> {r.status}</div>
+            <Box>
+              <Typography variant="h6">{r.title || "(Bez tytułu)"}</Typography>
+              <Typography variant="body2">📅 {r.date?.toDate?.().toLocaleDateString()}</Typography>
+              <Typography variant="body2">🕒 {r.startTime} – {r.endTime}</Typography>
+              <Typography variant="body2">👤 {r.creatorEmail}</Typography>
+              <Typography variant="body2">📌 {r.status}</Typography>
               {r.participantsEmails?.length > 0 && (
-                <div>
-                  <strong>👥 Uczestnicy:</strong>
-                  <ul style={{ paddingLeft: 20 }}>
-                    {r.participantsEmails.map((email, i) => (
-                      <li key={i}>{email}</li>
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="body2">👥 Uczestnicy:</Typography>
+                  <ul style={{ marginTop: 4, paddingLeft: 20 }}>
+                    {r.participantsEmails.map((e, i) => (
+                      <li key={i}>{e}</li>
                     ))}
                   </ul>
-                </div>
+                </Box>
               )}
-              <button
+              <Divider sx={{ my: 1 }} />
+              <Button
                 onClick={() => {
                   setEditingId(r.id);
-                  setEditedData({ title: r.title, startTime: r.startTime, endTime: r.endTime });
+                  setEditedData({
+                    title: r.title,
+                    startTime: r.startTime,
+                    endTime: r.endTime,
+                    participants: [...r.participantsEmails],
+                  });
                 }}
-                style={{ marginRight: 10 }}
+                variant="outlined"
+                size="small"
+                sx={{ mr: 1 }}
               >
                 ✏️ Edytuj
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => cancelReservation(r.id)}
                 disabled={r.status === "cancelled"}
+                variant="contained"
+                size="small"
+                color="secondary"
               >
                 ❌ Anuluj
-              </button>
-              <button
-                onClick={() => deleteReservation(r.id)}
-                style={{ marginLeft: 10,}}
-              >
-                🗑️ Usuń
-              </button>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
+              </Button>
+              <Button
+                onClick={() =>deleteReservation(r.id)} variant="outlined" size="small" color="error" sx={{ ml: 1 }} > 
+                🗑️ Usuń 
+                </Button> 
+                </Box> )} 
+                </Paper> ))} 
+                </Container> ); 
+                }

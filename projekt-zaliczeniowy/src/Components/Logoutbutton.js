@@ -1,4 +1,6 @@
 import { useAuth } from "../context/AuthContext";
+import { Button } from "@mui/material";
+import LogoutIcon from "@mui/icons-material/Logout";
 
 export default function LogoutButton() {
   const { logout } = useAuth();
@@ -12,8 +14,13 @@ export default function LogoutButton() {
   };
 
   return (
-    <button onClick={handleLogout}>
-      🚪 Wyloguj się
-    </button>
+    <Button
+      onClick={handleLogout}
+      variant="outlined"
+      color="primary"
+      startIcon={<LogoutIcon />}
+    >
+      Wyloguj się
+    </Button>
   );
 }

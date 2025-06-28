@@ -1,13 +1,49 @@
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Merriweather', serif;
+  background-color: #F2D7D0;
+  color: #59514F;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+.fc {
+  font-family: 'Merriweather', serif;
+}
+
+.fc-toolbar-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: #403433;
+}
+
+.fc .fc-button {
+  background-color: #403433 !important;
+  color: #fff !important;
+  border: 2px solid !important;
+  border-color: #403433 !important;
+  border-radius: 8px !important;
+  padding: 6px 14px !important;
+  font-size: 0.9rem !important;
+  font-family: 'Merriweather', serif !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
+  text-transform: none;
+}
+
+.fc .fc-button:hover,
+.fc .fc-button-primary:not(:disabled):hover {
+  background-color: #D9B3B0 !important;
+  color: #403433 !important;
+  border-color: #D9B3B0 !important;
+  transform: scale(1.05);
+}
+
+.fc .fc-day-today {
+  background-color: rgba(217, 179, 176, 0.2);
 }
