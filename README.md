@@ -41,3 +41,7 @@ npm install @mui/material @mui/icons-material @emotion/react @emotion/styled
 4. **Zainstaluj Firebase**
 
 npm install firebase
+
+5. **Uruchom aplikacje**
+
+npm run start
